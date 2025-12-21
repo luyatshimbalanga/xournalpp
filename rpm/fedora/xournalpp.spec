@@ -1,6 +1,9 @@
 # Force out of source build
 %global __cmake_in_source_build 0
 
+# Build with qpdf export backend
+%bcond qpdf 1
+
 #This spec file is intended for daily development snapshot release
 %global build_shortcommit {{{ git rev-parse --short HEAD }}}
 %global version_string {{{ git describe --tags --match 'v[0-9]*' | sed -e 's/^v\(.*\)-\([0-9]*\)-g\(.*\)$/\1^\2.g\3/' }}}
@@ -31,6 +34,9 @@ BuildRequires:  pkgconfig(gtest)
 }
 BuildRequires:  pkgconfig(glib-2.0) >= 2.32.0
 BuildRequires:  pkgconfig(gtk+-3.0) >= 3.18.9
+%if %{with qpdf}
+BuildRequires:  pkgconfig(libqpdf) >= 10.6.0
+%endif
 BuildRequires:  pkgconfig(librsvg-2.0)
 BuildRequires:  pkgconfig(libxml-2.0) >= 2.0.0
 BuildRequires:  pkgconfig(libzip) >= 1.0.1
@@ -68,11 +74,15 @@ The %{name}-ui package contains a graphical user interface for  %{name}.
 
 %prep
 %autosetup -n %{name}
+# We do not build nor ship the wrapper
+sed -i -e 's/xournalpp-wrapper/xournalpp/' desktop/com.github.xournalpp.xournalpp.desktop.in
 
 %build
 %cmake \
         -DDISTRO_CODENAME="Fedora Linux" \
+        -DENABLE_CPPTRACE=OFF \
         %{?_gtest: -DENABLE_GTEST=ON} \
+        -DENABLE_QPDF=%{?with_qpdf:ON}%{!?with_qpdf:OFF} \
         -DENABLE_MATHTEX=ON \
         -DGIT_VERSION=%{build_shortcommit} \
         -DMAC_INTEGRATION=OFF
@@ -81,6 +91,9 @@ The %{name}-ui package contains a graphical user interface for  %{name}.
 
 %install
 %cmake_install
+
+# We do not use the wrapper
+rm -f %{buildroot}%{_bindir}/%{name}-wrapper
 
 #Remove depreciated key from desktop file
 desktop-file-install \
@@ -121,6 +134,11 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/com.github.%{n
 %{_datadir}/%{name}/ui
 
 %changelog
+* Sat Dec 20 2025 Luya Tshimbalanga <luya@fedoraproject.org>
+- Enable qpdf
+- Disable cpptrace
+- Remove unneedeed wrapper
+
 * Mon Sep 9 2024 Luya Tshimbalanga <luya@fedoraproject.org>
 - Add color palettes support
 
